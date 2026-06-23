@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VPN 관리자</title>
 <style>
+@font-face {
+  font-family: 'TossFace';
+  src: url('/static/TossFaceFontMac.ttf') format('truetype');
+  unicode-range: U+1F000-1FFFF, U+2600-27BF, U+2300-23FF, U+2B50, U+2B55,
+                 U+FE00-FE0F, U+20D0-20FF, U+25A0-27FF, U+2B00-2BFF, U+3030,
+                 U+303D, U+3297, U+3299;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --bg:      #0f172a;
@@ -22,7 +30,7 @@
   --cyan:    #38bdf8;
   --radius:  12px;
 }
-body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'TossFace', sans-serif; min-height: 100vh; }
 
 /* ── 헤더 ── */
 header {
@@ -340,6 +348,13 @@ tr.row-pending { box-shadow: inset 3px 0 0 var(--orange); }
       <strong id="pw-input-user"></strong>
     </p>
     <div style="margin-bottom:16px">
+      <label style="display:block;font-size:.8rem;color:var(--text2);margin-bottom:6px">현재 비밀번호</label>
+      <div class="pw-box" style="padding:10px 16px;text-align:left;display:flex;align-items:center;justify-content:space-between">
+        <span class="pw-value" id="pw-current-value" style="font-size:1.1rem;letter-spacing:.1em">—</span>
+        <button class="copy-btn" onclick="copyText(document.getElementById('pw-current-value').textContent)" style="margin-left:12px">📋</button>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
       <label style="display:block;font-size:.8rem;color:var(--text2);margin-bottom:6px">새 비밀번호 (비워두면 자동 생성)</label>
       <input type="text" id="pw-input-field" placeholder="비워두면 랜덤 생성"
         style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;
@@ -488,6 +503,17 @@ function fmtConnSince(ts) {
 // ── 최대값 추적 (바 정규화) ────────────────────────────────────────────────
 let maxUp=1, maxDown=1;
 
+function osIcon(os) {
+  switch((os||'').toLowerCase()) {
+    case 'win':     return 'Windows';
+    case 'ios':     return 'iOS';
+    case 'android': return 'Android';
+    case 'mac':     return 'macOS';
+    case 'linux':   return 'Linux';
+    default:        return os || '';
+  }
+}
+
 // ── 유저 행 렌더링 ──────────────────────────────────────────────────────────
 function renderRow(u) {
   const dispUp   = u.online ? u.bytes_upload   : 0;
@@ -497,6 +523,7 @@ function renderRow(u) {
   const exp     = fmtExpiry(u.expires_at, u.is_expired);
   const connSince = u.online ? fmtConnSince(u.connected_since_t) : '';
   const instances = u.instances.map(i=>`<span class="inst-tag">${i}</span>`).join('');
+  const osTag = u.online && u.os ? `<span class="inst-tag" style="margin-left:2px">${osIcon(u.os)}</span>` : '';
 
   return `
   <tr data-username="${esc(u.username)}" class="${u.is_expired?'expired-row':''} ${_pending[u.username]?'row-pending':''}">
@@ -515,7 +542,7 @@ function renderRow(u) {
         <span class="dot ${u.online?'dot-green':'dot-gray'}"></span>
         ${u.online?'온라인':'오프라인'}
       </div>
-      ${u.online ? `<div class="conn-detail">${instances}${connSince?`<br>${connSince}`:''}</div>` : ''}
+      ${u.online ? `<div class="conn-detail">${instances}${osTag}${connSince?`<br>${connSince}`:''}</div>` : ''}
     </td>
     <td>
       <div class="editable" id="spd-${esc(u.username)}">
@@ -615,13 +642,15 @@ async function refreshSessions() {
       u.online             = !!sessions[u.username];
       u.instances          = s.instances||[];
       u.connected_since_t  = s.connected_since_t||0;
+      u.os                 = s.os||'';
       if (wasOnline !== u.online) { row.outerHTML=renderRow(u); return; }
-      // 온라인 상태 유지 중이면 접속 시각만 갱신
+      // 온라인 상태 유지 중이면 접속 시각/OS만 갱신
       const detail=row.querySelector('.conn-detail');
       if (detail && u.online) {
         const insts=u.instances.map(i=>`<span class="inst-tag">${i}</span>`).join('');
         const since=fmtConnSince(u.connected_since_t);
-        detail.innerHTML=insts+(since?`<br>${since}`:'');
+        const osTag=u.os?`<span class="inst-tag" style="margin-left:2px">${osIcon(u.os)}</span>`:'';
+        detail.innerHTML=insts+osTag+(since?`<br>${since}`:'');
       }
     });
     const onlineCnt=Object.keys(sessions).length;
@@ -790,11 +819,18 @@ async function doAddUser() {
 
 // ── 비밀번호 변경 ────────────────────────────────────────────────────────
 let _pwUsername = '';
-function resetPw(username) {
+async function resetPw(username) {
   _pwUsername = username;
   document.getElementById('pw-input-user').textContent = username;
   document.getElementById('pw-input-field').value = '';
+  document.getElementById('pw-current-value').textContent = '불러오는 중…';
   document.getElementById('pw-input-modal').classList.add('open');
+  try {
+    const r = await api(`/api/users/${encodeURIComponent(username)}`);
+    document.getElementById('pw-current-value').textContent = r.password || '(저장된 정보 없음)';
+  } catch(e) {
+    document.getElementById('pw-current-value').textContent = '(저장된 정보 없음)';
+  }
   setTimeout(()=>document.getElementById('pw-input-field').focus(), 80);
 }
 async function confirmPwChange() {

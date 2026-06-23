@@ -269,10 +269,18 @@ def change_openvpn_password(username: str, pw_hash: str):
 # ---------------------------------------------------------------------------
 # 헬퍼: 상태 파일 파싱
 # ---------------------------------------------------------------------------
+CLIENT_OS_DIR = Path("/run/openvpn-server/client-os")
+
+def _get_client_os(username: str) -> str:
+    try:
+        return (CLIENT_OS_DIR / username).read_text().strip()
+    except Exception:
+        return ""
+
 def parse_status_files() -> dict:
     """
     반환: {username: {bytes_upload, bytes_download, connections, instances,
-                      real_address, connected_since_t}}
+                      real_address, connected_since_t, os}}
     status-version 2 컬럼 순서:
       CLIENT_LIST, cn, real_addr, virt_addr, virt_ipv6,
       bytes_recv(5), bytes_sent(6), conn_since(7), conn_since_t(8), username(9)
@@ -300,6 +308,7 @@ def parse_status_files() -> dict:
                         "real_address": real_addr,
                         "virt_addr": virt_addr,
                         "connected_since_t": conn_since_t,
+                        "os": _get_client_os(cn),
                     }
                 sessions[cn]["bytes_upload"]    += bytes_recv
                 sessions[cn]["bytes_download"]  += bytes_sent
@@ -562,6 +571,7 @@ def api_users():
             "expires_at":        exp or "",
             "is_expired":        is_expired(exp),
             "enabled":           username not in disabled,
+            "os":                s.get("os", ""),
         })
 
     return jsonify(result)
@@ -603,6 +613,7 @@ def api_add_user():
         "acc_upload":       0,
         "acc_download":     0,
         "created_at":       datetime.now().isoformat(timespec="seconds"),
+        "password":         password,
     }
     save_meta(meta)
 
@@ -692,6 +703,14 @@ def api_delete_user(username: str):
 # ---------------------------------------------------------------------------
 # API: 비밀번호 변경 (수동 입력 or 자동 생성)
 # ---------------------------------------------------------------------------
+@app.route("/api/users/<username>", methods=["GET"])
+@login_required
+def api_get_user(username: str):
+    meta = load_meta()
+    if username not in meta:
+        return jsonify({"error": "없는 사용자"}), 404
+    return jsonify({"username": username, "password": meta[username].get("password", "")})
+
 @app.route("/api/users/<username>/reset-password", methods=["POST"])
 @login_required
 def api_reset_password(username: str):
@@ -703,6 +722,10 @@ def api_reset_password(username: str):
         change_openvpn_password(username, pw_hash)
     except PermissionError:
         return jsonify({"error": "권한 없음"}), 500
+    meta = load_meta()
+    if username in meta:
+        meta[username]["password"] = password
+        save_meta(meta)
     return jsonify({"password": password})
 
 # ---------------------------------------------------------------------------
@@ -945,6 +968,7 @@ def api_approve_request(req_id: str):
         "acc_upload":       0,
         "acc_download":     0,
         "created_at":       datetime.now().isoformat(timespec="seconds"),
+        "password":         password,
     }
     save_meta(meta)
 
