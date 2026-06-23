@@ -13,8 +13,5 @@ openvpn-admin/data/
 openvpn-setup/pki/*.key
 openvpn-setup/pki/ca.srl
 
-# Client OVPN files (contain embedded keys/certs)
-openvpn-setup/client/
-
 # User database
 openvpn-setup/server/users
