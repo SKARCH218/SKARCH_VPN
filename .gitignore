@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+openvpn-admin/venv/
+
+# Sensitive data (passwords, user info)
+openvpn-admin/data/
+
+# PKI private keys & CA key (NEVER commit these)
+openvpn-setup/pki/*.key
+openvpn-setup/pki/ca.srl
+
+# Client OVPN files (contain embedded keys/certs)
+openvpn-setup/client/
+
+# User database
+openvpn-setup/server/users

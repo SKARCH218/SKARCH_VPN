@@ -1,0 +1,15 @@
+[Unit]
+Description=SKARCH VPN 다운로드 페이지 (포트 8000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/user/openvpn-admin
+ExecStart=/home/user/openvpn-admin/venv/bin/python3 download_server.py
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

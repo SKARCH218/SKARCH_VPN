@@ -1,0 +1,11 @@
+[Unit]
+Description=Reboot every day at 06:00 (local time = KST)
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+# Local time is Asia/Seoul, so this fires at 06:00 KST.
+Persistent=false
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

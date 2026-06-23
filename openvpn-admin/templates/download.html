@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKARCH VPN</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0b1120;
+    --surface: #111827;
+    --border:  #1e2d45;
+    --text:    #f1f5f9;
+    --text2:   #94a3b8;
+    --muted:   #475569;
+    --blue:    #3b82f6;
+    --blue2:   #1d4ed8;
+    --cyan:    #06b6d4;
+    --green:   #22c55e;
+    --purple:  #a855f7;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(59,130,246,.18) 0%, transparent 70%),
+      var(--bg);
+  }
+
+  /* ── 로고 ── */
+  .logo-wrap {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+  .logo-icon {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #1e3a5f, #1d4ed8);
+    border-radius: 20px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 18px;
+    box-shadow: 0 0 40px rgba(59,130,246,.35);
+  }
+  .logo-icon svg { width: 40px; height: 40px; }
+  .logo-title {
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .logo-sub {
+    margin-top: 8px;
+    color: var(--text2);
+    font-size: .95rem;
+    letter-spacing: .03em;
+  }
+
+  /* ── 카드 ── */
+  .cards {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 720px;
+    width: 100%;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px 32px;
+    flex: 1;
+    min-width: 260px;
+    max-width: 320px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+  }
+  .card:hover { transform: translateY(-4px); }
+  .card:hover::before { opacity: 1; }
+
+  .card-tcp::before { background: radial-gradient(ellipse at top, rgba(59,130,246,.08), transparent 70%); }
+  .card-udp::before { background: radial-gradient(ellipse at top, rgba(6,182,212,.08), transparent 70%); }
+  .card:hover { box-shadow: 0 16px 48px rgba(0,0,0,.4); }
+
+  .card-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; padding: 4px 12px;
+    border-radius: 100px; margin-bottom: 22px;
+  }
+  .badge-tcp { background: rgba(59,130,246,.15); color: #60a5fa; border: 1px solid rgba(59,130,246,.25); }
+  .badge-udp { background: rgba(6,182,212,.15);  color: #22d3ee; border: 1px solid rgba(6,182,212,.25); }
+
+  .card-icon {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .icon-tcp { background: linear-gradient(135deg, rgba(59,130,246,.2), rgba(99,102,241,.2)); }
+  .icon-udp { background: linear-gradient(135deg, rgba(6,182,212,.2), rgba(34,197,94,.2)); }
+
+  .card-name {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .card-port {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .card-tcp .card-port { color: #60a5fa; }
+  .card-udp .card-port { color: #22d3ee; }
+
+  .card-desc {
+    font-size: .82rem;
+    color: var(--text2);
+    margin-bottom: 28px;
+    line-height: 1.6;
+  }
+
+  .dl-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    width: 100%; justify-content: center;
+    padding: 13px 20px;
+    border-radius: 10px;
+    font-size: .95rem; font-weight: 600;
+    cursor: pointer; border: none;
+    text-decoration: none;
+    transition: opacity .15s, transform .1s;
+  }
+  .dl-btn:hover { opacity: .88; transform: scale(.98); }
+  .dl-btn:active { transform: scale(.95); }
+  .btn-tcp { background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; }
+  .btn-udp { background: linear-gradient(135deg, #0891b2, #0d9488); color: #fff; }
+
+  /* ── 하단 안내 ── */
+  .footer-note {
+    margin-top: 48px;
+    text-align: center;
+    color: var(--muted);
+    font-size: .8rem;
+    line-height: 1.8;
+  }
+  .footer-note a { color: var(--text2); }
+
+  /* ── 계정 신청 ── */
+  .signup-wrap { margin-top: 28px; text-align: center; }
+  .signup-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--text2); font-size: .88rem; cursor: pointer;
+    background: none; border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 22px; transition: all .2s; font-family: inherit;
+  }
+  .signup-btn:hover { background: var(--surface); color: var(--text); border-color: var(--muted); }
+
+  .signup-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.75); z-index: 100;
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .signup-overlay.open { display: flex; }
+  .signup-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 36px; width: 100%; max-width: 420px;
+    box-shadow: 0 25px 60px rgba(0,0,0,.6);
+  }
+  .signup-box h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; }
+  .signup-box .sub { font-size: .82rem; color: var(--text2); margin-bottom: 24px; }
+  .signup-field { margin-bottom: 14px; }
+  .signup-field label { display: block; font-size: .78rem; color: var(--text2); margin-bottom: 5px; }
+  .signup-field input, .signup-field textarea {
+    width: 100%; padding: 10px 13px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: .88rem; outline: none;
+    transition: border-color .2s; font-family: inherit; resize: none;
+  }
+  .signup-field input:focus, .signup-field textarea:focus { border-color: var(--blue); }
+  .signup-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn-cancel {
+    padding: 10px 18px; border-radius: 8px; font-size: .875rem; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); background: transparent;
+    color: var(--text2); transition: all .15s; font-family: inherit;
+  }
+  .btn-cancel:hover { background: var(--border); color: var(--text); }
+  .btn-submit {
+    padding: 10px 24px; border-radius: 8px; font-size: .875rem; font-weight: 600;
+    cursor: pointer; border: none;
+    background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff;
+    transition: opacity .15s; font-family: inherit;
+  }
+  .btn-submit:hover { opacity: .88; }
+  .btn-submit:disabled { opacity: .45; cursor: not-allowed; }
+  .signup-err { font-size: .82rem; color: #f87171; margin-top: 8px; display: none; }
+  .signup-success { text-align: center; padding: 8px 0; }
+  .signup-success .ok-icon { font-size: 2.8rem; margin-bottom: 12px; }
+  .signup-success h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+  .signup-success p { font-size: .85rem; color: var(--text2); line-height: 1.65; }
+
+  @media (max-width: 600px) {
+    .logo-title { font-size: 1.9rem; }
+    .cards { gap: 16px; }
+    .card { padding: 28px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="logo-wrap">
+  <div class="logo-icon">
+    <svg viewBox="0 0 40 40" fill="none">
+      <path d="M20 3L32 9.5V22C32 29 26.4 35.2 20 37C13.6 35.2 8 29 8 22V9.5L20 3Z"
+            fill="url(#shield-grad)" opacity=".9"/>
+      <path d="M15 20L18.5 23.5L25 16" stroke="white" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <defs>
+        <linearGradient id="shield-grad" x1="8" y1="3" x2="32" y2="37" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#60a5fa"/>
+          <stop offset="1" stop-color="#a78bfa"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="logo-title">SKARCH VPN</div>
+  <div class="logo-sub">아래에서 연결 방식을 선택하고 설정 파일을 다운로드하세요</div>
+</div>
+
+<div class="cards">
+
+  <!-- TCP 443 -->
+  <div class="card card-tcp">
+    <div class="card-badge badge-tcp">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+      안정 연결
+    </div>
+    <div class="card-icon icon-tcp">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    </div>
+    <div class="card-name">TCP</div>
+    <div class="card-port">443</div>
+    <div class="card-desc">
+      HTTPS 포트 사용<br>
+      방화벽 우회 · 안정적 연결
+    </div>
+    <a class="dl-btn btn-tcp" href="https://github.com/SKARCH218/SKARCH_VPN/releases/download/1.0/SKARCH-TCP-443.ovpn" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      OVPN 다운로드
+    </a>
+  </div>
+
+  <!-- UDP 1703 -->
+  <div class="card card-udp">
+    <div class="card-badge badge-udp">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      빠른 연결
+    </div>
+    <div class="card-icon icon-udp">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    </div>
+    <div class="card-name">UDP</div>
+    <div class="card-port">1703</div>
+    <div class="card-desc">
+      UDP 프로토콜<br>
+      빠른 속도 · 낮은 지연
+    </div>
+    <a class="dl-btn btn-udp" href="https://github.com/SKARCH218/SKARCH_VPN/releases/download/1.0/SKARCH-UDP-1703.ovpn" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      OVPN 다운로드
+    </a>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  다운로드한 파일을 OpenVPN 앱에서 열고 계정 정보를 입력하세요<br>
+  문의: <a href="https://open.kakao.com/o/sVH2hQAi" target="_blank" rel="noopener"
+    style="color:#fee500;text-decoration:none;font-weight:600">
+    💬 카카오톡 오픈채팅
+  </a>
+</div>
+
+<div class="signup-wrap">
+  <button class="signup-btn" onclick="openSignup()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+    </svg>
+    계정 신청하기
+  </button>
+</div>
+
+<!-- 계정 신청 모달 -->
+<div class="signup-overlay" id="signup-overlay" onclick="if(event.target===this)closeSignup()">
+  <div class="signup-box">
+    <!-- 폼 화면 -->
+    <div id="signup-form-view">
+      <h2>계정 신청</h2>
+      <p class="sub">관리자 승인 후 입력하신 이메일로 계정 정보를 보내드립니다</p>
+      <div class="signup-field">
+        <label>이름 *</label>
+        <input type="text" id="signup-name" placeholder="홍길동" autocomplete="off">
+      </div>
+      <div class="signup-field">
+        <label>아이디 * <span style="font-size:.7rem;color:var(--muted)">(영문·숫자·_ 3~20자)</span></label>
+        <input type="text" id="signup-id" placeholder="hong123" autocomplete="off"
+          oninput="this.value=this.value.replace(/[^a-zA-Z0-9_]/g,'').toLowerCase()">
+      </div>
+      <div class="signup-field">
+        <label>비밀번호 * <span style="font-size:.7rem;color:var(--muted)">(6자 이상)</span></label>
+        <div style="position:relative">
+          <input type="password" id="signup-pw" placeholder="비밀번호 입력" autocomplete="new-password"
+            style="padding-right:52px">
+          <button type="button" id="pw-eye" onclick="togglePwVis()"
+            style="position:absolute;right:0;top:0;height:100%;padding:0 13px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:.78rem;font-family:inherit">
+            보기
+          </button>
+        </div>
+      </div>
+      <div class="signup-field">
+        <label>이메일 * <span style="font-size:.7rem;color:var(--muted)">(승인 알림 수신)</span></label>
+        <input type="email" id="signup-email" placeholder="example@email.com" autocomplete="email">
+      </div>
+      <div class="signup-err" id="signup-err"></div>
+      <div class="signup-footer">
+        <button class="btn-cancel" onclick="closeSignup()">취소</button>
+        <button class="btn-submit" id="signup-submit-btn" onclick="submitSignup()">신청하기</button>
+      </div>
+    </div>
+    <!-- 완료 화면 -->
+    <div id="signup-success-view" class="signup-success" style="display:none">
+      <div class="ok-icon">✅</div>
+      <h3>신청이 완료됐습니다!</h3>
+      <p>관리자 승인 후<br>입력하신 이메일로 계정 정보가 발송됩니다.</p>
+      <button class="btn-submit" style="margin-top:22px" onclick="closeSignup()">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function dlFile(proto, filename) {
+  const txtEl = document.getElementById(`dl-${proto}-txt`);
+  const orig  = txtEl.textContent;
+  txtEl.textContent = '다운로드 중…';
+  try {
+    const resp = await fetch(`/download/${proto}`);
+    if (!resp.ok) throw new Error(`서버 오류 ${resp.status}`);
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    txtEl.textContent = '✓ 완료!';
+    setTimeout(() => { txtEl.textContent = orig; }, 2000);
+  } catch(e) {
+    txtEl.textContent = '실패 — 재시도';
+    alert('다운로드 실패: ' + e.message);
+    setTimeout(() => { txtEl.textContent = orig; }, 2000);
+  }
+}
+
+function openSignup() {
+  ['signup-name','signup-id','signup-pw','signup-email'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  const err = document.getElementById('signup-err');
+  err.style.display = 'none'; err.textContent = '';
+  document.getElementById('signup-form-view').style.display    = '';
+  document.getElementById('signup-success-view').style.display = 'none';
+  const btn = document.getElementById('signup-submit-btn');
+  btn.disabled = false; btn.textContent = '신청하기';
+  // 비밀번호 숨김 초기화
+  const pwInp = document.getElementById('signup-pw');
+  pwInp.type = 'password';
+  document.getElementById('pw-eye').textContent = '보기';
+  document.getElementById('signup-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('signup-name').focus(), 60);
+}
+function closeSignup() {
+  document.getElementById('signup-overlay').classList.remove('open');
+}
+function togglePwVis() {
+  const inp = document.getElementById('signup-pw');
+  const btn = document.getElementById('pw-eye');
+  if (inp.type === 'password') { inp.type = 'text';     btn.textContent = '숨기기'; }
+  else                         { inp.type = 'password'; btn.textContent = '보기'; }
+}
+async function submitSignup() {
+  const name  = document.getElementById('signup-name').value.trim();
+  const id    = document.getElementById('signup-id').value.trim();
+  const pw    = document.getElementById('signup-pw').value;
+  const email = document.getElementById('signup-email').value.trim();
+  const err   = document.getElementById('signup-err');
+  const showErr = msg => { err.textContent = msg; err.style.display = ''; };
+
+  if (!name)  { showErr('이름을 입력하세요'); return; }
+  if (!id)    { showErr('아이디를 입력하세요'); return; }
+  if (id.length < 3 || id.length > 20) { showErr('아이디는 3~20자여야 합니다'); return; }
+  if (!pw)    { showErr('비밀번호를 입력하세요'); return; }
+  if (pw.length < 6) { showErr('비밀번호는 6자 이상이어야 합니다'); return; }
+  if (!email) { showErr('이메일을 입력하세요'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('올바른 이메일 주소를 입력하세요'); return; }
+
+  err.style.display = 'none';
+  const btn = document.getElementById('signup-submit-btn');
+  btn.disabled = true; btn.textContent = '신청 중…';
+  try {
+    const r = await fetch('/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: name, username: id, password: pw, email })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || '오류가 발생했습니다');
+    document.getElementById('signup-form-view').style.display    = 'none';
+    document.getElementById('signup-success-view').style.display = '';
+  } catch(e) {
+    showErr(e.message);
+    btn.disabled = false; btn.textContent = '신청하기';
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,6 @@
+[Unit]
+Description=Scheduled daily reboot (06:00 KST)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl reboot

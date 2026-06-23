@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenVPN Admin Panel (Flask)
+After=network-online.target openvpn-server@tcp443.service openvpn-server@udp-1703.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/user/openvpn-admin
+Environment=PORT=8080
+Environment=ADMIN_PASSWORD=admin1234
+ExecStart=/home/user/openvpn-admin/venv/bin/python3 app.py
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

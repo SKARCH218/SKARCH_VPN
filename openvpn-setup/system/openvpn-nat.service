@@ -1,0 +1,13 @@
+[Unit]
+Description=NAT/masquerade for OpenVPN clients
+After=network-online.target nftables.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/openvpn/server/openvpn-nat.nft
+ExecStop=/usr/sbin/nft delete table inet openvpn_nat
+
+[Install]
+WantedBy=multi-user.target

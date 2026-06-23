@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VPN 관리자</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0f172a;
+  --surface: #1e293b;
+  --border:  #334155;
+  --muted:   #64748b;
+  --text:    #e2e8f0;
+  --text2:   #94a3b8;
+  --blue:    #3b82f6;
+  --blue2:   #2563eb;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --orange:  #f59e0b;
+  --purple:  #818cf8;
+  --cyan:    #38bdf8;
+  --radius:  12px;
+}
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+/* ── 헤더 ── */
+header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+.logo svg { width: 32px; height: 32px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.live-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3);
+  color: var(--green); padding: 4px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600;
+}
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,.4)} 50%{opacity:.8;box-shadow:0 0 0 5px rgba(34,197,94,0)} }
+.btn-sm { padding: 6px 14px; border-radius: 8px; font-size: .875rem; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text2); transition: all .15s; }
+.btn-sm:hover { background: var(--border); color: var(--text); }
+
+main { max-width: 1280px; margin: 0 auto; padding: 28px 24px; }
+
+/* ── 통계 카드 ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 28px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
+.stat-label { font-size: .78rem; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.stat-value { font-size: 1.9rem; font-weight: 700; }
+.stat-sub { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+.stat-online .stat-value  { color: var(--green); }
+.stat-up .stat-value      { color: var(--purple); }
+.stat-down .stat-value    { color: var(--cyan); }
+.stat-expired .stat-value { color: var(--red); }
+
+/* ── 섹션 헤더 ── */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.section-title  { font-size: 1.1rem; font-weight: 600; }
+
+/* ── 버튼 ── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-size: .875rem; font-weight: 600; cursor: pointer; border: none; transition: all .15s; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue2); }
+.btn-ghost   { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--border); color: var(--text); }
+
+/* ── 테이블 ── */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 900px; }
+th { text-align: left; padding: 13px 14px; font-size: .73rem; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); font-weight: 600; white-space: nowrap; }
+td { padding: 13px 14px; border-bottom: 1px solid rgba(51,65,85,.5); font-size: .88rem; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,.025); }
+tr.expired-row td { opacity: .6; }
+tr.expired-row td:first-child { opacity: 1; }
+
+/* ── 상태 ── */
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.status-online  { background: rgba(34,197,94,.12); color: var(--green); }
+.status-offline { background: rgba(100,116,139,.1); color: var(--muted); }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink:0; }
+.dot-green { background: var(--green); animation: pulse 2s infinite; }
+.dot-gray  { background: var(--muted); }
+.conn-detail { font-size: .73rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+.inst-tag { display: inline-block; background: rgba(59,130,246,.12); color: #93c5fd; padding: 1px 6px; border-radius: 4px; font-size: .7rem; margin-right: 3px; }
+
+/* ── 만료일 배지 ── */
+.expiry { display: inline-flex; align-items: center; gap: 5px; font-size: .82rem; font-weight: 500; }
+.expiry-none    { color: var(--muted); }
+.expiry-ok      { color: var(--green); }
+.expiry-soon    { color: var(--orange); }
+.expiry-expired { color: var(--red); }
+.expiry-sub     { font-size: .72rem; opacity: .7; display: block; margin-top: 2px; }
+
+/* ── 인라인 편집 ── */
+.editable { display: flex; align-items: center; gap: 6px; }
+.editable input { background: var(--bg); border: 1px solid var(--blue); border-radius: 6px; padding: 5px 9px; color: var(--text); font-size: .82rem; outline: none; }
+.edit-icon { cursor: pointer; opacity: .35; transition: opacity .15s; flex-shrink: 0; }
+.edit-icon:hover { opacity: 1; }
+
+/* ── 사용량 바 ── */
+.usage-row { display: flex; align-items: center; gap: 7px; font-size: .78rem; color: var(--text2); }
+.bar-track { flex: 1; height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; min-width: 40px; }
+.bar-fill  { height: 100%; border-radius: 4px; transition: width .4s; }
+.bar-up    { background: var(--purple); }
+.bar-down  { background: var(--cyan); }
+
+/* ── 액션 ── */
+.actions { display: flex; gap: 5px; align-items: center; }
+/* ── 토글 스위치 ── */
+.toggle-wrap { display:inline-flex; align-items:center; cursor:pointer; }
+.toggle-wrap input { display:none; }
+.toggle-track { width:38px; height:22px; background:var(--border); border-radius:11px; position:relative; transition:background .2s; flex-shrink:0; }
+.toggle-wrap input:checked ~ .toggle-track { background:#22c55e; }
+.toggle-thumb { position:absolute; top:3px; left:3px; width:16px; height:16px; background:#fff; border-radius:50%; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+.toggle-wrap input:checked ~ .toggle-track .toggle-thumb { left:19px; }
+/* ── 펜딩 변경사항 ── */
+tr.row-pending { box-shadow: inset 3px 0 0 var(--orange); }
+.pending-bar { position:fixed; bottom:-72px; left:0; right:0; background:var(--bg2); border-top:2px solid var(--orange); padding:14px 28px; display:flex; align-items:center; justify-content:space-between; transition:bottom .28s cubic-bezier(.4,0,.2,1); z-index:300; box-shadow:0 -6px 24px rgba(0,0,0,.35); }
+.pending-bar.show { bottom:0; }
+.pending-bar .info { display:flex; align-items:center; gap:10px; font-size:.9rem; color:var(--text2); }
+.pending-bar .info strong { color:var(--orange); }
+.pending-bar .btns { display:flex; gap:8px; }
+.icon-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text2); transition: all .15s; }
+.icon-btn:hover        { background: var(--border); color: var(--text); }
+.icon-btn.red:hover    { background: #450a0a; border-color: #7f1d1d; color: #fca5a5; }
+.icon-btn.orange:hover { background: rgba(245,158,11,.1); border-color: var(--orange); color: var(--orange); }
+
+/* ── 모달 ── */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 200; align-items: center; justify-content: center; }
+.overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 440px; box-shadow: 0 25px 60px rgba(0,0,0,.6); max-height: 90vh; overflow-y: auto; }
+.modal h2 { font-size: 1.2rem; margin-bottom: 22px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: .8rem; color: var(--text2); margin-bottom: 5px; }
+.form-group input, .form-group select { width: 100%; padding: 10px 13px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: .88rem; outline: none; transition: border-color .2s; }
+.form-group input:focus { border-color: var(--blue); }
+.form-hint { font-size: .73rem; color: var(--muted); margin-top: 4px; }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+/* ── 비밀번호 박스 ── */
+.pw-box { background: var(--bg); border: 1px solid rgba(34,197,94,.3); border-radius: 10px; padding: 18px; text-align: center; }
+.pw-box .pw-label { font-size: .75rem; color: var(--text2); margin-bottom: 8px; }
+.pw-value { font-size: 1.5rem; font-weight: 700; font-family: monospace; color: var(--green); letter-spacing: .12em; }
+.pw-warn  { font-size: .73rem; color: var(--orange); margin-top: 8px; }
+.copy-btn { margin-top: 10px; padding: 5px 14px; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); border-radius: 6px; color: var(--green); cursor: pointer; font-size: .8rem; }
+.copy-btn:hover { background: rgba(34,197,94,.2); }
+
+/* ── 토스트 ── */
+.toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 11px 16px; border-radius: 8px; font-size: .875rem; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.4); animation: slideIn .2s ease; max-width: 300px; }
+.toast-ok  { background: #14532d; color: #86efac; border: 1px solid #166534; }
+.toast-err { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+@keyframes slideIn { from{transform:translateX(120%);opacity:0} to{transform:none;opacity:1} }
+
+/* ── 빈 상태 ── */
+.empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+/* ── 서버 제어 바 ── */
+.server-bar { background:var(--surface); border-bottom:1px solid var(--border); padding:10px 28px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.server-bar .bar-label { font-size:.78rem; color:var(--muted); margin-right:4px; }
+.svc-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+.svc-dot.up   { background:#22c55e; box-shadow:0 0 6px #22c55e88; }
+.svc-dot.down { background:#ef4444; }
+.btn-danger { background:rgba(239,68,68,.12); border-color:#7f1d1d; color:#fca5a5; }
+.btn-danger:hover { background:rgba(239,68,68,.22); }
+.sep { width:1px; height:24px; background:var(--border); }
+@media (max-width:600px) { main{padding:14px} .stat-value{font-size:1.5rem} .server-bar{padding:10px 14px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="8" fill="#1e3a5f"/>
+      <path d="M16 4L24 8.5V17C24 21 20.4 24.8 16 26C11.6 24.8 8 21 8 17V8.5L16 4Z" fill="#3b82f6" opacity=".85"/>
+      <path d="M13 16L15.5 18.5L19 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    VPN 관리자
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><span class="live-dot"></span><span id="live-text">0 온라인</span></div>
+    <button class="btn-sm" onclick="doLogout()">로그아웃</button>
+  </div>
+</header>
+
+<!-- ── 서버 제어 바 ── -->
+<div class="server-bar">
+  <!-- TCP 443 -->
+  <span class="bar-label">TCP 443</span>
+  <span id="svc-tcp-dot" class="svc-dot down"></span>
+  <span id="svc-tcp-txt" style="font-size:.76rem;color:var(--muted);min-width:40px">—</span>
+  <button class="btn btn-ghost" id="tcp-toggle-btn" onclick="toggleSvc('tcp')" style="padding:5px 13px;font-size:.8rem;min-width:74px">—</button>
+  <button class="btn btn-ghost" onclick="restartSvc('tcp')" style="padding:5px 12px;font-size:.8rem">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg>
+    재시작
+  </button>
+  <div class="sep"></div>
+  <!-- UDP 1703 -->
+  <span class="bar-label">UDP 1703</span>
+  <span id="svc-udp-dot" class="svc-dot down"></span>
+  <span id="svc-udp-txt" style="font-size:.76rem;color:var(--muted);min-width:40px">—</span>
+  <button class="btn btn-ghost" id="udp-toggle-btn" onclick="toggleSvc('udp')" style="padding:5px 13px;font-size:.8rem;min-width:74px">—</button>
+  <button class="btn btn-ghost" onclick="restartSvc('udp')" style="padding:5px 12px;font-size:.8rem">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg>
+    재시작
+  </button>
+  <div class="sep"></div>
+  <!-- 시스템 재시작 -->
+  <button class="btn btn-danger" onclick="confirmReboot()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64A9 9 0 1 1 5.64 5.64"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+    시스템 재시작
+  </button>
+</div>
+
+<main>
+  <!-- 통계 카드 -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">전체 유저</div>
+      <div class="stat-value" id="s-total">—</div>
+      <div class="stat-sub">등록된 계정</div>
+    </div>
+    <div class="stat-card stat-online">
+      <div class="stat-label">현재 접속</div>
+      <div class="stat-value" id="s-online">—</div>
+      <div class="stat-sub">온라인 중</div>
+    </div>
+    <div class="stat-card stat-up">
+      <div class="stat-label">총 업로드</div>
+      <div class="stat-value" id="s-up">—</div>
+      <div class="stat-sub">클라이언트 → 서버</div>
+    </div>
+    <div class="stat-card stat-down">
+      <div class="stat-label">총 다운로드</div>
+      <div class="stat-value" id="s-down">—</div>
+      <div class="stat-sub">서버 → 클라이언트</div>
+    </div>
+    <div class="stat-card stat-expired">
+      <div class="stat-label">만료된 계정</div>
+      <div class="stat-value" id="s-expired">—</div>
+      <div class="stat-sub">접속 불가</div>
+    </div>
+  </div>
+
+  <!-- 회원가입 신청 목록 -->
+  <div class="section-header" style="margin-bottom:12px">
+    <div class="section-title" style="display:flex;align-items:center;gap:10px">
+      회원가입 신청
+      <span id="req-badge" style="display:none;background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.25);border-radius:999px;padding:2px 10px;font-size:.72rem;font-weight:700;letter-spacing:.02em"></span>
+    </div>
+  </div>
+  <div id="req-section" style="margin-bottom:28px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;text-align:center;color:var(--muted);font-size:.88rem">
+      대기 중인 신청이 없습니다
+    </div>
+  </div>
+
+  <!-- 유저 목록 -->
+  <div class="section-header">
+    <div class="section-title">유저 관리</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost" onclick="exportUsers()" title="Excel 내보내기">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Excel 내보내기
+      </button>
+      <button class="btn btn-ghost" onclick="document.getElementById('import-file').click()" title="Excel 가져오기">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Excel 가져오기
+      </button>
+      <input type="file" id="import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importUsers(this)">
+      <button class="btn btn-primary" onclick="openAddModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        유저 추가
+      </button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>활성</th>
+          <th>유저</th>
+          <th>실시간 상태</th>
+          <th>속도 제한</th>
+          <th>만료일</th>
+          <th>업로드</th>
+          <th>다운로드</th>
+          <th>생성일</th>
+          <th>액션</th>
+        </tr>
+      </thead>
+      <tbody id="user-tbody">
+        <tr><td colspan="8"><div class="empty">불러오는 중…</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<!-- ── 유저 추가 모달 ── -->
+<div class="overlay" id="add-modal">
+  <div class="modal">
+    <h2>유저 추가</h2>
+    <div class="form-group">
+      <label>표시명 (별명) *</label>
+      <input type="text" id="add-name" placeholder="예: 홍길동">
+    </div>
+    <div class="form-group">
+      <label>아이디 (선택 — 비우면 자동)</label>
+      <input type="text" id="add-username" placeholder="예: hong">
+    </div>
+    <div class="form-group">
+      <label>속도 제한</label>
+      <input type="text" id="add-speed" placeholder="예: 10M, 1G, 500K, 0=무제한">
+      <div class="form-hint">K=Kbps · M=Mbps · G=Gbps</div>
+    </div>
+    <div class="form-group">
+      <label>만료일 (선택 — 비우면 무기한)</label>
+      <input type="date" id="add-expires">
+      <div class="form-hint">설정한 날짜 다음날부터 접속 불가</div>
+    </div>
+    <div id="add-result" style="display:none"></div>
+    <div class="modal-footer" id="add-footer">
+      <button class="btn btn-ghost" onclick="closeModal('add-modal')">취소</button>
+      <button class="btn btn-primary" onclick="doAddUser()">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 비밀번호 입력 모달 ── -->
+<div class="overlay" id="pw-input-modal">
+  <div class="modal" style="max-width:380px">
+    <h2>비밀번호 변경</h2>
+    <p style="color:var(--text2);font-size:.875rem;margin-bottom:16px">
+      <strong id="pw-input-user"></strong>
+    </p>
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:.8rem;color:var(--text2);margin-bottom:6px">새 비밀번호 (비워두면 자동 생성)</label>
+      <input type="text" id="pw-input-field" placeholder="비워두면 랜덤 생성"
+        style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;
+               background:var(--bg2);color:var(--text1);font-size:1rem;box-sizing:border-box">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('pw-input-modal')">취소</button>
+      <button class="btn btn-primary" onclick="confirmPwChange()">변경</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 비밀번호 결과 모달 ── -->
+<div class="overlay" id="pw-modal">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <h2>비밀번호 변경 완료</h2>
+    <p style="color:var(--text2);font-size:.875rem;margin-bottom:16px">
+      <strong id="pw-modal-user"></strong>
+    </p>
+    <div class="pw-box">
+      <div class="pw-label">새 비밀번호</div>
+      <div class="pw-value" id="pw-modal-value"></div>
+      <p class="pw-warn">⚠️ 지금 복사하세요. 다시 볼 수 없습니다.</p>
+      <button class="copy-btn" onclick="copyPw()">📋 복사</button>
+    </div>
+    <div class="modal-footer" style="justify-content:center;margin-top:18px">
+      <button class="btn btn-primary" onclick="closeModal('pw-modal')">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 신청 승인 결과 모달 ── -->
+<div class="overlay" id="approve-modal">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <h2>✅ 계정 생성 완료</h2>
+    <p style="color:var(--text2);font-size:.875rem;margin-bottom:16px">
+      <strong id="approve-display-name"></strong>
+    </p>
+    <div class="pw-box">
+      <div class="pw-label">아이디</div>
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:14px;color:var(--text);font-family:monospace;letter-spacing:.04em" id="approve-username"></div>
+      <div class="pw-label">비밀번호</div>
+      <div class="pw-value" id="approve-password"></div>
+      <p class="pw-warn">⚠️ 지금 복사하세요. 다시 볼 수 없습니다.</p>
+      <button class="copy-btn" onclick="copyApproveInfo()">📋 아이디 + 비번 복사</button>
+    </div>
+    <p id="approve-email-sent" style="margin-top:12px;font-size:.8rem;color:var(--green)"></p>
+    <div class="modal-footer" style="justify-content:center;margin-top:18px">
+      <button class="btn btn-primary" onclick="closeModal('approve-modal');loadRequests();loadUsers();loadStats()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Excel 가져오기 결과 모달 ── -->
+<div class="overlay" id="import-modal">
+  <div class="modal" style="max-width:560px">
+    <h2>Excel 가져오기 결과</h2>
+    <div id="import-result-body" style="max-height:420px;overflow-y:auto"></div>
+    <div class="modal-footer" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" id="import-download-btn" style="display:none" onclick="downloadImportResult()">📥 결과 Excel 저장</button>
+      <button class="btn btn-primary" onclick="closeModal('import-modal');loadUsers();loadStats()">확인</button>
+    </div>
+  </div>
+</div>
+
+<div id="pending-bar" class="pending-bar">
+  <div class="info">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span>변경사항 <strong id="pending-count">0</strong>개 — 아직 저장되지 않았습니다</span>
+  </div>
+  <div class="btns">
+    <button class="btn" onclick="cancelChanges()">취소</button>
+    <button class="btn btn-primary" onclick="applyChanges()">적용하기</button>
+  </div>
+</div>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ── 유틸 ──────────────────────────────────────────────────────────────────
+function fmt(bytes) {
+  if (!bytes) return '0 B';
+  const k=1024, s=['B','KB','MB','GB','TB'];
+  const i=Math.floor(Math.log(bytes)/Math.log(k));
+  return (bytes/Math.pow(k,i)).toFixed(i?1:0)+' '+s[i];
+}
+function fmtSpeed(kbps) {
+  if (!kbps) return '무제한';
+  if (kbps>=1024*1024) return (kbps/1024/1024).toFixed(1)+' Gbps';
+  if (kbps>=1024)      return (kbps/1024).toFixed(1)+' Mbps';
+  return kbps+' Kbps';
+}
+function parseSpeed(s) {
+  s=s.trim().toUpperCase();
+  if (!s||s==='0'||s==='무제한'||s==='-') return 0;
+  const m=s.match(/^([\d.]+)\s*([KMG]?)(?:BPS|B\/S|MBPS|GBPS|KBPS|B|PS)?$/);
+  if (!m) return NaN;
+  const n=parseFloat(m[1]),u=m[2];
+  if(u==='G') return Math.round(n*1024*1024);
+  if(u==='M') return Math.round(n*1024);
+  if(u==='K') return Math.round(n);
+  return Math.round(n);
+}
+function fmtDate(s) { return s?s.slice(0,10):'—'; }
+function esc(s) {
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function toast(msg, type='ok') {
+  const w=document.getElementById('toast-wrap');
+  const el=document.createElement('div');
+  el.className=`toast toast-${type}`; el.textContent=msg;
+  w.appendChild(el); setTimeout(()=>el.remove(),3000);
+}
+async function api(url, opts={}) {
+  const r=await fetch(url,{headers:{'Content-Type':'application/json'},...opts});
+  const d=await r.json();
+  if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+  return d;
+}
+
+// ── 만료일 표시 ────────────────────────────────────────────────────────────
+function fmtExpiry(dateStr, isExpired) {
+  if (!dateStr) return {text:'무기한', cls:'expiry-none', sub:''};
+  const today = new Date(); today.setHours(0,0,0,0);
+  const exp   = new Date(dateStr+'T00:00:00');
+  const diff  = Math.round((exp-today)/(1000*60*60*24));
+  if (isExpired || diff < 0) return {text:'만료됨', cls:'expiry-expired', sub:dateStr};
+  if (diff === 0) return {text:'오늘 만료', cls:'expiry-soon', sub:''};
+  if (diff <= 7)  return {text:`D-${diff}`, cls:'expiry-soon', sub:dateStr};
+  return {text:dateStr, cls:'expiry-ok', sub:''};
+}
+
+// ── 접속 시각 ────────────────────────────────────────────────────────────────
+function fmtConnSince(ts) {
+  if (!ts) return '';
+  const d   = new Date(ts*1000);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffM  = Math.floor(diffMs/60000);
+  if (diffM < 1)   return '방금 접속';
+  if (diffM < 60)  return `${diffM}분 전 접속`;
+  const diffH = Math.floor(diffM/60);
+  if (diffH < 24)  return `${diffH}시간 ${diffM%60}분 전 접속`;
+  return `${Math.floor(diffH/24)}일 전 접속`;
+}
+
+// ── 최대값 추적 (바 정규화) ────────────────────────────────────────────────
+let maxUp=1, maxDown=1;
+
+// ── 유저 행 렌더링 ──────────────────────────────────────────────────────────
+function renderRow(u) {
+  const dispUp   = u.online ? u.bytes_upload   : 0;
+  const dispDown = u.online ? u.bytes_download : 0;
+  const upPct   = Math.min(100, (dispUp/maxUp)*100);
+  const downPct = Math.min(100, (dispDown/maxDown)*100);
+  const exp     = fmtExpiry(u.expires_at, u.is_expired);
+  const connSince = u.online ? fmtConnSince(u.connected_since_t) : '';
+  const instances = u.instances.map(i=>`<span class="inst-tag">${i}</span>`).join('');
+
+  return `
+  <tr data-username="${esc(u.username)}" class="${u.is_expired?'expired-row':''} ${_pending[u.username]?'row-pending':''}">
+    <td style="text-align:center">
+      <label class="toggle-wrap" title="${u.enabled?'비활성화':'활성화'}">
+        <input type="checkbox" ${u.enabled?'checked':''} onchange="toggleUser('${esc(u.username)}',this.checked)">
+        <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      </label>
+    </td>
+    <td>
+      <div style="font-weight:600">${esc(u.display_name)}</div>
+      <div style="font-size:.76rem;color:var(--muted)">${esc(u.username)}</div>
+    </td>
+    <td>
+      <div class="status ${u.online?'status-online':'status-offline'}">
+        <span class="dot ${u.online?'dot-green':'dot-gray'}"></span>
+        ${u.online?'온라인':'오프라인'}
+      </div>
+      ${u.online ? `<div class="conn-detail">${instances}${connSince?`<br>${connSince}`:''}</div>` : ''}
+    </td>
+    <td>
+      <div class="editable" id="spd-${esc(u.username)}">
+        <span id="spd-val-${esc(u.username)}">${fmtSpeed(u.speed_limit_kbps)}</span>
+        <span class="edit-icon" onclick="editSpeed('${esc(u.username)}',${u.speed_limit_kbps})" title="편집">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </span>
+      </div>
+    </td>
+    <td>
+      <div class="editable" id="exp-${esc(u.username)}">
+        <div>
+          <span class="expiry ${exp.cls}">${exp.text}</span>
+          ${exp.sub ? `<span class="expiry-sub ${exp.cls}">${exp.sub}</span>` : ''}
+        </div>
+        <span class="edit-icon" onclick="editExpiry('${esc(u.username)}','${esc(u.expires_at)}')" title="편집">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </span>
+      </div>
+    </td>
+    <td>
+      <div class="usage-row">
+        <span style="color:var(--purple)">↑</span>
+        <div class="bar-track"><div class="bar-fill bar-up" style="width:${upPct}%"></div></div>
+        <span style="width:58px;text-align:right">${u.online ? fmt(dispUp) : '-'}</span>
+      </div>
+    </td>
+    <td>
+      <div class="usage-row">
+        <span style="color:var(--cyan)">↓</span>
+        <div class="bar-track"><div class="bar-fill bar-down" style="width:${downPct}%"></div></div>
+        <span style="width:58px;text-align:right">${u.online ? fmt(dispDown) : '-'}</span>
+      </div>
+    </td>
+    <td style="color:var(--muted);font-size:.8rem">${fmtDate(u.created_at)}</td>
+    <td>
+      <div class="actions">
+        <button class="icon-btn orange" title="비밀번호 초기화" onclick="resetPw('${esc(u.username)}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/>
+          </svg>
+        </button>
+        <button class="icon-btn red" title="삭제" onclick="deleteUser('${esc(u.username)}','${esc(u.display_name)}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+          </svg>
+        </button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+// ── 데이터 로드 ─────────────────────────────────────────────────────────────
+let _users = [];
+
+async function loadStats() {
+  try {
+    const s=await api('/api/stats');
+    document.getElementById('s-total').textContent   = s.total_users;
+    document.getElementById('s-online').textContent  = s.online_users;
+    document.getElementById('s-up').textContent      = fmt(s.total_upload);
+    document.getElementById('s-down').textContent    = fmt(s.total_download);
+    document.getElementById('s-expired').textContent = s.expired_users;
+    document.getElementById('live-text').textContent = `${s.online_users} 온라인`;
+  } catch {}
+}
+
+async function loadUsers() {
+  try {
+    _users = await api('/api/users');
+    maxUp   = Math.max(1, ..._users.filter(u=>u.online).map(u=>u.bytes_upload));
+    maxDown = Math.max(1, ..._users.filter(u=>u.online).map(u=>u.bytes_download));
+    const tbody=document.getElementById('user-tbody');
+    if (!_users.length) {
+      tbody.innerHTML=`<tr><td colspan="8"><div class="empty">등록된 유저가 없습니다</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML=_users.map(renderRow).join('');
+  } catch(e) { toast('유저 목록 로드 실패: '+e.message,'err'); }
+}
+
+// 실시간 세션만 빠르게 갱신 (10초)
+async function refreshSessions() {
+  try {
+    const sessions=await api('/api/sessions');
+    _users.forEach(u => {
+      const s=sessions[u.username]||{};
+      const row=document.querySelector(`tr[data-username="${CSS.escape(u.username)}"]`);
+      if (!row) return;
+      const wasOnline = u.online;
+      u.online             = !!sessions[u.username];
+      u.instances          = s.instances||[];
+      u.connected_since_t  = s.connected_since_t||0;
+      if (wasOnline !== u.online) { row.outerHTML=renderRow(u); return; }
+      // 온라인 상태 유지 중이면 접속 시각만 갱신
+      const detail=row.querySelector('.conn-detail');
+      if (detail && u.online) {
+        const insts=u.instances.map(i=>`<span class="inst-tag">${i}</span>`).join('');
+        const since=fmtConnSince(u.connected_since_t);
+        detail.innerHTML=insts+(since?`<br>${since}`:'');
+      }
+    });
+    const onlineCnt=Object.keys(sessions).length;
+    document.getElementById('live-text').textContent=`${onlineCnt} 온라인`;
+  } catch {}
+}
+
+// ── 펜딩 변경사항 시스템 ──────────────────────────────────────────────────
+const _pending = {};
+function setPending(username, field, value) {
+  if (!_pending[username]) _pending[username] = {};
+  _pending[username][field] = value;
+  _updatePendingBar();
+  const row = document.querySelector(`tr[data-username="${CSS.escape(username)}"]`);
+  if (row) row.classList.add('row-pending');
+}
+function _updatePendingBar() {
+  const total = Object.values(_pending).reduce((n,c)=>n+Object.keys(c).length, 0);
+  document.getElementById('pending-count').textContent = total;
+  document.getElementById('pending-bar').classList.toggle('show', total > 0);
+}
+async function applyChanges() {
+  const entries = Object.entries(_pending);
+  if (!entries.length) return;
+  let ok=0;
+  for (const [un, changes] of entries) {
+    try {
+      await api(`/api/users/${encodeURIComponent(un)}`,{method:'PATCH',body:JSON.stringify(changes)});
+      ok++;
+    } catch(e) { toast(`${un}: ${e.message}`,'err'); }
+  }
+  Object.keys(_pending).forEach(k=>delete _pending[k]);
+  _updatePendingBar();
+  loadUsers(); loadStats();
+  if (ok) toast(`${ok}개 변경사항 적용 완료`);
+}
+function cancelChanges() {
+  Object.keys(_pending).forEach(k=>delete _pending[k]);
+  _updatePendingBar();
+  loadUsers();
+}
+
+// ── 속도 제한 인라인 편집 ─────────────────────────────────────────────────
+function editSpeed(username, current) {
+  const cell=document.getElementById(`spd-${username}`);
+  const disp=fmtSpeed(current)==='무제한'?'':String(current||'');
+  cell.innerHTML=`
+    <input type="text" id="spd-inp-${username}" value="${disp}" placeholder="예: 10M" style="width:90px"
+      onkeydown="if(event.key==='Enter')saveSpeed('${username}');if(event.key==='Escape')loadUsers()">
+    <button class="icon-btn" style="border-color:var(--blue);color:var(--blue)" onclick="saveSpeed('${username}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+    </button>`;
+  document.getElementById(`spd-inp-${username}`).focus();
+}
+function saveSpeed(username) {
+  const inp=document.getElementById(`spd-inp-${username}`);
+  if (!inp) return;
+  const kbps=parseSpeed(inp.value);
+  if (isNaN(kbps)) { toast('잘못된 형식. 예: 10M, 1G, 500K, 0=무제한','err'); return; }
+  const user=_users.find(u=>u.username===username);
+  if (user) user.speed_limit_kbps=kbps;
+  setPending(username,'speed_limit_kbps',kbps);
+  const cell=document.getElementById(`spd-${username}`);
+  if (cell) cell.innerHTML=`
+    <span id="spd-val-${username}">${fmtSpeed(kbps)}</span>
+    <span class="edit-icon" onclick="editSpeed('${esc(username)}',${kbps})" title="편집">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </span>`;
+}
+
+// ── 만료일 인라인 편집 ────────────────────────────────────────────────────
+function editExpiry(username, current) {
+  const cell=document.getElementById(`exp-${username}`);
+  cell.innerHTML=`
+    <input type="date" id="exp-inp-${username}" value="${current||''}" style="width:130px"
+      onkeydown="if(event.key==='Enter')saveExpiry('${username}');if(event.key==='Escape')loadUsers()">
+    <button class="icon-btn" style="border-color:var(--blue);color:var(--blue)" onclick="saveExpiry('${username}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+    </button>
+    <button class="icon-btn" title="무기한으로" onclick="clearExpiry('${username}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>`;
+  document.getElementById(`exp-inp-${username}`).focus();
+}
+function saveExpiry(username) {
+  const inp=document.getElementById(`exp-inp-${username}`);
+  if (!inp) return;
+  const val=inp.value;
+  const user=_users.find(u=>u.username===username);
+  if (user) { user.expires_at=val; user.is_expired=val&&val<new Date().toISOString().slice(0,10); }
+  setPending(username,'expires_at',val);
+  const cell=document.getElementById(`exp-${username}`);
+  if (cell) {
+    const exp=fmtExpiry(val, user?.is_expired||false);
+    cell.innerHTML=`<div><span class="expiry ${exp.cls}">${exp.text}</span>${exp.sub?`<span class="expiry-sub ${exp.cls}">${exp.sub}</span>`:''}</div>
+      <span class="edit-icon" onclick="editExpiry('${esc(username)}','${esc(val)}')" title="편집">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </span>`;
+  }
+}
+function clearExpiry(username) {
+  const user=_users.find(u=>u.username===username);
+  if (user) { user.expires_at=''; user.is_expired=false; }
+  setPending(username,'expires_at','');
+  const cell=document.getElementById(`exp-${username}`);
+  if (cell) {
+    const exp=fmtExpiry('',false);
+    cell.innerHTML=`<div><span class="expiry ${exp.cls}">${exp.text}</span></div>
+      <span class="edit-icon" onclick="editExpiry('${esc(username)}','')" title="편집">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </span>`;
+  }
+}
+
+// ── 유저 추가 모달 ────────────────────────────────────────────────────────
+function openAddModal() {
+  ['add-name','add-username','add-speed'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('add-expires').value='';
+  document.getElementById('add-result').style.display='none';
+  document.getElementById('add-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('add-modal')">취소</button>
+    <button class="btn btn-primary" onclick="doAddUser()">추가</button>`;
+  document.getElementById('add-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('add-name').focus(),50);
+}
+async function doAddUser() {
+  const name    = document.getElementById('add-name').value.trim();
+  const uname   = document.getElementById('add-username').value.trim();
+  const spd     = document.getElementById('add-speed').value.trim();
+  const expires = document.getElementById('add-expires').value;
+  if (!name) { toast('표시명을 입력하세요','err'); return; }
+  const kbps = spd?parseSpeed(spd):0;
+  if (isNaN(kbps)) { toast('잘못된 속도 형식','err'); return; }
+  try {
+    const r=await api('/api/users',{method:'POST',body:JSON.stringify({
+      display_name:name, username:uname, speed_limit_kbps:kbps, expires_at:expires
+    })});
+    const box=document.getElementById('add-result');
+    box.innerHTML=`
+      <div style="margin-top:8px">
+        <div style="font-size:.8rem;color:var(--text2);margin-bottom:10px">
+          ✅ <strong>${r.username}</strong> 추가 완료
+          ${expires?`<br>만료일: <strong>${expires}</strong>`:''}
+        </div>
+        <div class="pw-box">
+          <div class="pw-label">생성된 비밀번호</div>
+          <div class="pw-value" id="new-pw-val">${r.password}</div>
+          <p class="pw-warn">⚠️ 지금 복사하세요. 다시 볼 수 없습니다.</p>
+          <button class="copy-btn" onclick="copyText('${r.password}')">📋 복사</button>
+        </div>
+      </div>`;
+    box.style.display='block';
+    document.getElementById('add-footer').innerHTML=`
+      <button class="btn btn-primary" onclick="closeModal('add-modal');loadUsers();loadStats()">확인</button>`;
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ── 비밀번호 변경 ────────────────────────────────────────────────────────
+let _pwUsername = '';
+function resetPw(username) {
+  _pwUsername = username;
+  document.getElementById('pw-input-user').textContent = username;
+  document.getElementById('pw-input-field').value = '';
+  document.getElementById('pw-input-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('pw-input-field').focus(), 80);
+}
+async function confirmPwChange() {
+  const pw = document.getElementById('pw-input-field').value.trim();
+  closeModal('pw-input-modal');
+  try {
+    const r = await api(`/api/users/${encodeURIComponent(_pwUsername)}/reset-password`,
+      { method:'POST', body: JSON.stringify({ password: pw }) });
+    document.getElementById('pw-modal-user').textContent = _pwUsername;
+    document.getElementById('pw-modal-value').textContent = r.password;
+    document.getElementById('pw-modal').classList.add('open');
+  } catch(e) { toast(e.message,'err'); }
+}
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(()=>toast('복사됨')).catch(()=>_copyFallback(text));
+  } else {
+    _copyFallback(text);
+  }
+}
+function _copyFallback(text) {
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.style.cssText='position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); toast('복사됨'); }
+  catch { toast('복사 실패 — 직접 선택 후 복사하세요','err'); }
+  document.body.removeChild(ta);
+}
+function copyPw() {
+  copyText(document.getElementById('pw-modal-value').textContent);
+}
+
+// ── 유저 활성화/비활성화 토글 ────────────────────────────────────────────────
+function toggleUser(username, enabled) {
+  const user=_users.find(u=>u.username===username);
+  if (user) user.enabled=enabled;
+  setPending(username,'enabled',enabled);
+}
+
+// ── 유저 삭제 ──────────────────────────────────────────────────────────────
+async function deleteUser(username, displayName) {
+  if (!confirm(`'${displayName}' (${username}) 을 삭제할까요?\n되돌릴 수 없습니다.`)) return;
+  try {
+    await api(`/api/users/${encodeURIComponent(username)}`,{method:'DELETE'});
+    toast(`${displayName} 삭제 완료`);
+    loadUsers(); loadStats();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ── 공통 모달 닫기 ────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=>{
+  if(e.target===e.currentTarget) e.currentTarget.classList.remove('open');
+}));
+
+// ── Excel 내보내기 (fetch + Blob, 페이지 이동 없음) ─────────────────────
+async function exportUsers() {
+  try {
+    toast('파일 생성 중...');
+    const resp = await fetch('/api/users/export', { credentials: 'same-origin' });
+    if (!resp.ok) { const e=await resp.json(); throw new Error(e.error||resp.statusText); }
+    const blob = await resp.blob();
+    const ct   = resp.headers.get('content-type') || '';
+    const ext  = ct.includes('csv') ? 'csv' : 'xlsx';
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `vpn_users.${ext}`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('다운로드 완료');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ── Excel 가져오기 ────────────────────────────────────────────────────────
+let _importCreated = [];
+async function importUsers(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';   // 같은 파일 재선택 가능하게 초기화
+
+  const fd = new FormData();
+  fd.append('file', file);
+  toast('파일 처리 중...');
+  try {
+    const r = await fetch('/api/users/import', {
+      method: 'POST', credentials: 'same-origin', body: fd
+    });
+    if (!r.ok) { const e=await r.json(); throw new Error(e.error||r.statusText); }
+    const data = await r.json();
+    _importCreated = data.created || [];
+    _showImportResult(data);
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+function _showImportResult(data) {
+  const { created=[], skipped=[], errors=[] } = data;
+  let html = '';
+
+  if (created.length) {
+    html += `<div style="margin-bottom:14px">
+      <div style="font-weight:600;color:var(--green);margin-bottom:8px">✅ 추가됨 (${created.length}명)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <thead><tr style="color:var(--muted)">
+          <th style="text-align:left;padding:4px 8px">표시이름</th>
+          <th style="text-align:left;padding:4px 8px">유저이름</th>
+          <th style="text-align:left;padding:4px 8px">비밀번호</th>
+        </tr></thead><tbody>
+        ${created.map(u=>`<tr style="border-top:1px solid var(--border)">
+          <td style="padding:5px 8px">${esc(u.display_name)}</td>
+          <td style="padding:5px 8px;color:var(--muted)">${esc(u.username)}</td>
+          <td style="padding:5px 8px">
+            <code style="background:var(--bg2);padding:2px 6px;border-radius:4px;letter-spacing:.05em">${esc(u.password)}</code>
+            <button style="margin-left:6px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:.75rem" onclick="copyText('${esc(u.password)}')">📋</button>
+          </td>
+        </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+  if (skipped.length) {
+    html += `<div style="margin-bottom:10px;font-size:.85rem;color:var(--muted)">
+      ⏭ 건너뜀 (이미 존재): ${skipped.map(s=>`<code>${esc(s)}</code>`).join(', ')}
+    </div>`;
+  }
+  if (errors.length) {
+    html += `<div style="font-size:.85rem;color:#f87171">
+      ❌ 오류: ${errors.map(e=>`<div>${esc(e)}</div>`).join('')}
+    </div>`;
+  }
+  if (!created.length && !skipped.length && !errors.length) {
+    html = '<div style="color:var(--muted);text-align:center;padding:20px">처리할 데이터가 없습니다.</div>';
+  }
+
+  document.getElementById('import-result-body').innerHTML = html;
+  document.getElementById('import-download-btn').style.display = created.length ? '' : 'none';
+  document.getElementById('import-modal').classList.add('open');
+}
+
+// 가져오기 결과를 Excel로 저장 (표시이름, 유저이름, 비밀번호)
+function downloadImportResult() {
+  if (!_importCreated.length) return;
+  // CSV 형태로 간단히 생성 (Excel에서 열림)
+  const bom = '﻿';
+  const header = '표시이름,유저이름,비밀번호\n';
+  const rows = _importCreated.map(u =>
+    [u.display_name, u.username, u.password].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')
+  ).join('\n');
+  const blob = new Blob([bom + header + rows], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'vpn_users_result.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── 서버 제어 ────────────────────────────────────────────────────────────
+const _svcUp = { tcp: null, udp: null };
+
+function _updateSvcBtn(svc, up) {
+  const dot = document.getElementById(`svc-${svc}-dot`);
+  const txt = document.getElementById(`svc-${svc}-txt`);
+  const btn = document.getElementById(`${svc}-toggle-btn`);
+  if (!dot) return;
+  dot.className = `svc-dot ${up ? 'up' : 'down'}`;
+  if (txt) txt.textContent = up ? '실행중' : '중지됨';
+  if (!btn) return;
+  if (up) {
+    btn.innerHTML = '⏹ 정지';
+    btn.classList.add('btn-danger'); btn.classList.remove('btn-ghost');
+  } else {
+    btn.innerHTML = '▶ 시작';
+    btn.classList.remove('btn-danger'); btn.classList.add('btn-ghost');
+  }
+}
+
+async function loadServerStatus() {
+  try {
+    const s = await api('/api/server/status');
+    _svcUp.tcp = s.tcp443;
+    _svcUp.udp = s.udp1703;
+    _updateSvcBtn('tcp', s.tcp443);
+    _updateSvcBtn('udp', s.udp1703);
+  } catch {}
+}
+
+async function toggleSvc(svc) {
+  const label  = svc === 'tcp' ? 'TCP 443' : 'UDP 1703';
+  const enable = !_svcUp[svc];
+  const msg    = enable
+    ? `${label} 서버를 시작할까요?`
+    : `${label} 서버를 중지할까요?\n접속 중인 유저가 끊어집니다.`;
+  if (!confirm(msg)) return;
+  try {
+    await api(`/api/server/${svc}/toggle`, { method:'POST', body:JSON.stringify({ enable }) });
+    toast(enable ? `${label} 시작됨` : `${label} 중지됨`);
+    setTimeout(loadServerStatus, 1500);
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function restartSvc(svc) {
+  const label = svc === 'tcp' ? 'TCP 443' : 'UDP 1703';
+  if (!confirm(`${label} 서버를 재시작할까요?\n접속 중인 유저가 잠깐 끊깁니다.`)) return;
+  try {
+    await api(`/api/server/${svc}/restart`, { method:'POST' });
+    toast(`${label} 재시작 완료`);
+    setTimeout(loadServerStatus, 2000);
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function confirmReboot() {
+  if (!confirm('⚠️ 서버(라즈베리파이)를 재시작합니다.\n재부팅 후 약 1~2분간 접속 불가합니다.\n계속하시겠습니까?')) return;
+  try {
+    await api('/api/server/reboot', { method:'POST' });
+    toast('재시작 중... 1~2분 후 페이지를 새로고침하세요');
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ── 회원가입 신청 관리 ────────────────────────────────────────────────────
+let _requests = [];
+
+function _fmtReqTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleDateString('ko-KR') + ' ' + d.toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'});
+}
+
+async function loadRequests() {
+  try {
+    _requests = await api('/api/requests');
+    const badge   = document.getElementById('req-badge');
+    const section = document.getElementById('req-section');
+    if (!_requests.length) {
+      badge.style.display = 'none';
+      section.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;text-align:center;color:var(--muted);font-size:.88rem">대기 중인 신청이 없습니다</div>`;
+      return;
+    }
+    badge.textContent = _requests.length + ' 건';
+    badge.style.display = '';
+    section.innerHTML = `
+    <div class="table-wrap">
+      <table style="min-width:760px">
+        <thead><tr>
+          <th>이름</th>
+          <th>아이디</th>
+          <th>비밀번호</th>
+          <th>이메일</th>
+          <th>신청 시각</th>
+          <th>액션</th>
+        </tr></thead>
+        <tbody>
+          ${_requests.map(r => `
+          <tr data-req-id="${esc(r.id)}">
+            <td style="font-weight:600">${esc(r.display_name)}</td>
+            <td style="font-family:monospace;color:var(--cyan)">${esc(r.username||'-')}</td>
+            <td><code style="background:rgba(0,0,0,.25);padding:2px 7px;border-radius:4px;font-size:.82rem;letter-spacing:.04em">${esc(r.password||'-')}</code></td>
+            <td style="color:var(--text2);font-size:.83rem">${esc(r.email||'-')}</td>
+            <td style="color:var(--muted);font-size:.8rem;white-space:nowrap">${_fmtReqTime(r.requested_at)}</td>
+            <td>
+              <div class="actions">
+                <button class="btn btn-primary" style="padding:5px 14px;font-size:.8rem" onclick="approveReq('${esc(r.id)}')">승인</button>
+                <button class="btn btn-ghost" style="padding:5px 14px;font-size:.8rem;color:var(--red);border-color:rgba(239,68,68,.3)" onclick="rejectReq('${esc(r.id)}','${esc(r.display_name)}')">거절</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  } catch(e) { console.error('신청 목록 로드 실패:', e); }
+}
+
+async function approveReq(id) {
+  const req = _requests.find(r => r.id === id);
+  if (!req) return;
+  if (!confirm(`'${req.display_name}' (${req.username||'자동'}) 신청을 승인하고\n계정을 생성할까요?`)) return;
+  try {
+    const r = await api(`/api/requests/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+    document.getElementById('approve-display-name').textContent = r.display_name;
+    document.getElementById('approve-username').textContent     = r.username;
+    document.getElementById('approve-password').textContent     = r.password;
+    const emailEl = document.getElementById('approve-email-sent');
+    if (emailEl) emailEl.textContent = r.email ? `📧 ${r.email} 으로 발송됨` : '';
+    document.getElementById('approve-modal').classList.add('open');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function rejectReq(id, displayName) {
+  if (!confirm(`'${displayName}' 의 신청을 거절할까요?`)) return;
+  try {
+    await api(`/api/requests/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+    toast(`${displayName} 거절됨`);
+    loadRequests();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+function copyApproveInfo() {
+  const un = document.getElementById('approve-username').textContent;
+  const pw = document.getElementById('approve-password').textContent;
+  copyText(`아이디: ${un}\n비밀번호: ${pw}`);
+}
+
+// ── 로그아웃 ──────────────────────────────────────────────────────────────
+async function doLogout() {
+  await fetch('/logout',{method:'POST'});
+  location.href='/login';
+}
+
+// ── 폴링 ──────────────────────────────────────────────────────────────────
+loadStats();
+loadUsers();
+loadRequests();
+loadServerStatus();
+setInterval(refreshSessions, 5000);
+setInterval(()=>{
+  if (!Object.keys(_pending).length) { loadStats(); loadUsers(); loadRequests(); }
+}, 15000);
+setInterval(loadServerStatus, 10000); // 서버 상태 10초마다
+</script>
+</body>
+</html>
